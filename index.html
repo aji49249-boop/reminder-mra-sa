@@ -523,11 +523,19 @@
       });
     }
 
-    function loadRecords(saCode) {
+    /**
+     * saCode: kode SA yang mau dimuat.
+     * quiet: true kalau ini pemanggilan auto-refresh di belakang layar - tidak
+     * menampilkan skeleton loading / ikon berputar, supaya tidak mengganggu
+     * kalau user sedang scroll/lihat-lihat data.
+     */
+    function loadRecords(saCode, quiet) {
       var btn = document.getElementById('refreshBtn');
-      btn.classList.add('spin');
-      document.getElementById('main').innerHTML =
-        '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      if (!quiet) {
+        btn.classList.add('spin');
+        document.getElementById('main').innerHTML =
+          '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      }
 
       callApi('getRecords', { sa: saCode }, function (records) {
         btn.classList.remove('spin');
@@ -537,7 +545,9 @@
         render();
       }, function (err) {
         btn.classList.remove('spin');
-        document.getElementById('main').innerHTML = '<div class="empty">Gagal memuat data: ' + esc(err) + '</div>';
+        if (!quiet) {
+          document.getElementById('main').innerHTML = '<div class="empty">Gagal memuat data: ' + esc(err) + '</div>';
+        }
       });
     }
 
@@ -549,6 +559,31 @@
     document.getElementById('refreshBtn').addEventListener('click', function () {
       loadRecords(CURRENT_SA);
     });
+
+    /* ====================== AUTO-REFRESH TIAP 60 DETIK ======================
+     * Supaya data di layar tetap up-to-date kalau ada SA lain yang mengisi
+     * dari HP/laptop lain, tanpa perlu klik "Muat ulang" manual terus-menerus.
+     * Dilewati (skip) kalau user SEDANG memilih dropdown Keterangan atau
+     * sedang mengisi tanggal booking - supaya pilihannya tidak tiba-tiba
+     * ketimpa/hilang di tengah proses.
+     */
+    var AUTO_REFRESH_MS = 60000;
+    function isUserEditingNow() {
+      var el = document.activeElement;
+      if (!el) return false;
+      return (el.tagName === 'SELECT' && el.classList.contains('ket-select')) ||
+             (el.tagName === 'INPUT' && el.type === 'date');
+    }
+    function autoRefreshTick() {
+      if (isUserEditingNow()) return;
+      var listActive = document.getElementById('listWrap').style.display !== 'none';
+      if (listActive) {
+        loadRecords(CURRENT_SA, true);
+      } else {
+        loadProgress();
+      }
+    }
+    setInterval(autoRefreshTick, AUTO_REFRESH_MS);
 
     /* ====================== TAB: PROGRESS MONITORING ====================== */
 
