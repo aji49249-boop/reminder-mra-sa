@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reminder SA - Perintis Perkasa</title>
+  <!--
+    ====================================================================
+    VERSI UNTUK DI-DEPLOY KE VERCEL (atau hosting statis lain).
+
+    Halaman ini TIDAK memakai google.script.run (itu cuma jalan di dalam
+    Apps Script). Sebagai gantinya, halaman ini memanggil Web App Apps
+    Script yang SAMA (URL deploy yang sudah ada) sebagai API JSON lewat
+    JSONP - jadi datanya tetap live, langsung dari spreadsheet asli.
+
+    WAJIB: isi APPS_SCRIPT_URL di bawah ini dengan URL deploy Apps
+    Script kamu (yang diakhiri "/exec"), sebelum di-deploy ke Vercel.
+    Syarat deployment Apps Script-nya: "Execute as: Me", "Who has
+    access: Anyone" (supaya bisa diakses dari luar tanpa login).
+    ====================================================================
+  -->
+  <script>
+    var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby553gpBSz66DsR6vwzrv1NeFRNUN15nhSFQiCMyEZfd3CbTkh7_liJs7S_S_TKDD5V8g/exec';
+  </script>
+  <script>
+    // Pasang tema SEBELUM halaman digambar (supaya tidak "kedip" putih dulu) -
+    // dibaca dari localStorage perangkat ini (pilihan tema tersimpan per HP/laptop).
+    (function () {
+      try {
+        var t = localStorage.getItem('rmTheme') || 'navy';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root{
+      --navy:#1F4E78; --navy-dark:#163a59;
+      --bg:#E6ECF5; --panel:#FFFFFF; --border:#DDE3EE;
+      --text:#1C2330; --muted:#6B7380;
+      --ok:#188038; --warn:#B06000; --bad:#D93025;
+      --radius:12px;
+      --page-gradient: linear-gradient(160deg,#EEF3FB 0%,#E2E9F5 45%,#D7E0EF 100%);
+      --chip-bg:#F1F3F4; --chip-text:#5F6368; --chip-text-strong:#3C4043;
+      --badge-bg:#EAF1F8; --badge-text:var(--navy);
+      --skeleton-a:#eceff2; --skeleton-b:#f6f7f9;
+      --ring-track:#E7EAF0; --warn-text:#B9790A; --accent:#1F4E78;
+      --cat-blue:#2a78d6; --cat-orange:#eb6834; --cat-aqua:#1baf7a; --cat-violet:#6250d6;
+      --status-good:#0ca30c; --status-warning:#fab219; --status-critical:#d03b3b;
+      --ink-primary:#14181f; --ink-secondary:#52514e; --ink-muted:#898781;
+      --chart-surface:#ffffff; --page-plane:#eef1f6; --track-empty:#e7eaf0;
+      --tone-blue-bg:#E7F0FC; --tone-blue-border:#CFE2F8;
+      --tone-violet-bg:#EFEBFC; --tone-violet-border:#DCD4F7;
+      --tone-orange-bg:#FCEEE5; --tone-orange-border:#F8D9C4;
+      --tone-aqua-bg:#E4F7EF; --tone-aqua-border:#C7EEDC;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    }
+
+    /* ---- Tema "Hitam" - netral gelap, tanpa corak warna ---- */
+    html[data-theme="dark-black"]{
+      --bg:#1a1a19; --panel:#232322; --border:#34342f;
+      --text:#f0efec; --muted:#a7a59d;
+      --page-gradient: linear-gradient(160deg,#141413 0%,#1a1a19 55%,#121212 100%);
+      --chip-bg:#2c2c2a; --chip-text:#c3c2b7; --chip-text-strong:#f0efec;
+      --badge-bg:#2a3744; --badge-text:#8fc1ef;
+      --skeleton-a:#232322; --skeleton-b:#2d2d2b;
+      --ring-track:#34342f; --warn-text:#f0ac3a; --accent:#4C9CDB;
+      --cat-blue:#3987e5; --cat-orange:#d95926; --cat-aqua:#199e70; --cat-violet:#9085e9;
+      --ink-primary:#f0efec; --ink-secondary:#c3c2b7; --ink-muted:#898781;
+      --chart-surface:#232322; --page-plane:#1a1a19; --track-empty:#34342f;
+      --tone-blue-bg:#1d2a38; --tone-blue-border:#2d4258;
+      --tone-violet-bg:#271f3a; --tone-violet-border:#3c2f57;
+      --tone-orange-bg:#30221a; --tone-orange-border:#4a3625;
+      --tone-aqua-bg:#163028; --tone-aqua-border:#1f4a3d;
+    }
+    /* ---- Tema "Navy" - gelap dengan corak biru navy (senada warna brand) ---- */
+    html[data-theme="navy"]{
+      --bg:#122134; --panel:#16273d; --border:#243a54;
+      --text:#eaf0f8; --muted:#8fa3bd;
+      --page-gradient: linear-gradient(160deg,#0d1b2c 0%,#122134 55%,#0a1522 100%);
+      --chip-bg:#1c3047; --chip-text:#b9cbe0; --chip-text-strong:#eaf0f8;
+      --badge-bg:#1d3a56; --badge-text:#9cc9f5;
+      --skeleton-a:#16273d; --skeleton-b:#1d3049;
+      --ring-track:#243a54; --warn-text:#f0ac3a; --accent:#5FA8E8;
+      --cat-blue:#3987e5; --cat-orange:#d95926; --cat-aqua:#199e70; --cat-violet:#9085e9;
+      --ink-primary:#eaf0f8; --ink-secondary:#b9cbe0; --ink-muted:#8fa3bd;
+      --chart-surface:#16273d; --page-plane:#0f2033; --track-empty:#243a54;
+      --tone-blue-bg:#1a3250; --tone-blue-border:#2b4a6c;
+      --tone-violet-bg:#271f44; --tone-violet-border:#3c3166;
+      --tone-orange-bg:#332416; --tone-orange-border:#4f3820;
+      --tone-aqua-bg:#123828; --tone-aqua-border:#1a5540;
+    }
+
+    *{box-sizing:border-box;}
+    body{
+      margin:0;color:var(--text);-webkit-font-smoothing:antialiased;min-height:100vh;
+      background:var(--page-gradient) fixed;transition:background .25s ease,color .25s ease;
+    }
+    .theme-switch{display:flex;gap:6px;position:absolute;top:14px;right:16px;}
+    .theme-dot{
+      width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.55);
+      cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;
+      box-shadow:0 1px 3px rgba(0,0,0,.25);
+    }
+    .theme-dot.sw-black{background:#1a1a19;}
+    .theme-dot.sw-navy{background:#122134;}
+    .theme-dot.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.35);}
+    .theme-dot svg{width:12px;height:12px;}
+    header{
+      position:sticky;top:0;z-index:20;
+      background:linear-gradient(135deg,var(--navy),var(--navy-dark));
+      color:#fff;padding:16px 18px 14px;
+      box-shadow:0 2px 10px rgba(0,0,0,.15);
+    }
+    header h1{margin:0 0 2px;font-size:17px;font-weight:700;letter-spacing:.2px;}
+    header p{margin:0;font-size:12px;opacity:.85;}
+    .toolbar{
+      display:flex;gap:8px;padding:12px 14px;background:var(--panel);
+      border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:15;
+      flex-wrap:wrap;
+    }
+    select,input[type=search]{
+      border:1px solid var(--border);border-radius:9px;padding:9px 11px;
+      font-size:13.5px;background:var(--panel);color:var(--text);outline:none;
+    }
+    select:focus,input[type=search]:focus{border-color:var(--navy);}
+    #saSelect{flex:0 0 auto;min-width:130px;font-weight:600;}
+    #searchBox{flex:1 1 160px;min-width:120px;}
+    #refreshBtn{
+      border:none;border-radius:9px;background:var(--navy);color:#fff;
+      padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;
+      display:flex;align-items:center;gap:6px;flex:0 0 auto;
+    }
+    #refreshBtn:active{background:var(--navy-dark);}
+    #refreshBtn.spin svg{animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .statusbar{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:8px 14px;font-size:11.5px;color:var(--muted);
+      background:var(--bg);
+    }
+    #count{font-weight:600;color:var(--text);}
+    #toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(20px);
+      background:var(--text);color:#fff;padding:10px 16px;border-radius:9px;
+      font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.25);
+      opacity:0;transition:opacity .25s,transform .25s;z-index:50;pointer-events:none;
+      max-width:90vw;
+    }
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    #toast.ok{background:var(--ok);}
+    #toast.bad{background:var(--bad);}
+    main{padding:10px 12px 90px;max-width:720px;margin:0 auto;}
+    .card{
+      background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+      padding:13px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(16,24,40,.04);
+      transition:box-shadow .15s;
+    }
+    .card.saving{opacity:.65;}
+    .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;}
+    .cust-name{font-size:14.5px;font-weight:700;color:var(--text);line-height:1.25;}
+    .cust-sub{font-size:12px;color:var(--muted);margin-top:1px;}
+    .sa-badge{
+      flex:0 0 auto;background:var(--badge-bg);color:var(--badge-text);font-size:11px;font-weight:700;
+      padding:3px 9px;border-radius:999px;white-space:nowrap;
+    }
+    .grid-fields{
+      display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;
+      font-size:12px;color:var(--muted);margin-bottom:10px;
+    }
+    .grid-fields div b{color:var(--text);font-weight:600;}
+    .ket-mra{
+      font-size:11.5px;background:var(--chip-bg);color:var(--chip-text);border-radius:8px;
+      padding:6px 9px;margin-bottom:10px;line-height:1.4;
+    }
+    .ket-mra b{color:var(--chip-text-strong);}
+    .field-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px;}
+    .ket-select{
+      width:100%;padding:10px 11px;border-radius:9px;border:1.5px solid var(--border);
+      font-size:13.5px;font-weight:600;appearance:none;-webkit-appearance:none;
+      background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%236B7380'/></svg>");
+      background-repeat:no-repeat;background-position:right 12px center;padding-right:30px;
+      cursor:pointer;
+    }
+    .date-input{
+      width:100%;padding:9px 11px;border-radius:9px;border:1.5px solid var(--border);
+      font-size:13.5px;font-weight:600;background:var(--panel);color:var(--text);
+      color-scheme:light dark;
+    }
+    .booking-field{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+    .empty,.loading{text-align:center;color:var(--muted);font-size:13px;padding:50px 20px;}
+    .loading svg{animation:spin 1s linear infinite;margin-bottom:10px;}
+    .skeleton{height:92px;border-radius:var(--radius);background:linear-gradient(90deg,var(--skeleton-a) 25%,var(--skeleton-b) 37%,var(--skeleton-a) 63%);background-size:400% 100%;animation:sk 1.4s ease infinite;margin-bottom:10px;}
+    @keyframes sk{0%{background-position:100% 0}100%{background-position:0 0}}
+
+    /* ---- Tabs ---- */
+    .tabs{display:flex;gap:0;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:16;}
+    .tab-btn{
+      flex:1;border:none;background:none;padding:12px 8px;font-size:13px;font-weight:600;
+      color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;
+    }
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy);}
+
+    /* ---- Progress view (palette tokens defined at :root so theme switch reaches it) ---- */
+    #progressView{
+      padding:16px 14px 100px;max-width:780px;margin:0 auto;
+    }
+    .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+    .kpi-tile{
+      background:var(--chart-surface);border:1px solid var(--border);border-radius:14px;
+      padding:18px 10px;text-align:center;box-shadow:0 1px 2px rgba(16,24,40,.04);
+    }
+    .kpi-tile .num{font-size:26px;font-weight:800;color:var(--ink-primary);line-height:1.1;}
+    .kpi-tile .num.ok{color:var(--status-good);}
+    .kpi-tile .num.warn{color:var(--warn-text);}
+    .kpi-tile .lbl{font-size:12px;color:var(--ink-secondary);margin-top:6px;font-weight:600;}
+    .ring-wrap{display:flex;align-items:center;gap:20px;background:var(--chart-surface);border:1px solid var(--border);
+      border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+    .ring-wrap svg{flex:0 0 auto;}
+    .ring-pct{font-weight:800;fill:var(--ink-primary);}
+    .ring-caption b{color:var(--ink-primary);font-size:15.5px;}
+    .ring-caption div{font-size:13px;color:var(--ink-secondary);margin-top:5px;line-height:1.55;}
+    .section-title{font-size:13px;font-weight:800;color:var(--ink-primary);letter-spacing:.2px;margin:22px 2px 10px;}
+    .team-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px;}
+    .team-card{border:1px solid transparent;border-radius:16px;
+      padding:20px 10px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;
+      box-shadow:0 1px 2px rgba(16,24,40,.05);}
+    .team-card.tone-blue{background:var(--tone-blue-bg);border-color:var(--tone-blue-border);}
+    .team-card.tone-violet{background:var(--tone-violet-bg);border-color:var(--tone-violet-border);}
+    .team-card.tone-orange{background:var(--tone-orange-bg);border-color:var(--tone-orange-border);}
+    .team-card.tone-aqua{background:var(--tone-aqua-bg);border-color:var(--tone-aqua-border);}
+    .team-card .team-name{font-size:13.5px;font-weight:800;color:var(--ink-primary);}
+    .team-card .team-frac{font-size:11.5px;color:var(--ink-secondary);font-weight:600;}
+    .updated-note{font-size:11.5px;color:var(--ink-muted);text-align:right;margin:4px 2px 20px;}
+
+    /* ---- Diagram batang progres SA ---- */
+    .sa-chart-wrap{background:var(--chart-surface);border:1px solid var(--border);border-radius:16px;
+      padding:18px 14px 12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+    .sa-chart-legend{display:flex;gap:18px;font-size:12.5px;color:var(--ink-secondary);margin-bottom:16px;font-weight:600;}
+    .sa-chart-legend span{display:inline-flex;align-items:center;gap:7px;}
+    .legend-swatch{width:11px;height:11px;border-radius:3px;display:inline-block;}
+    .sa-chart-scroll{overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;}
+    .sa-chart-row{display:flex;align-items:flex-end;gap:16px;min-height:210px;padding:0 4px;}
+    .sa-col{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:62px;}
+    .sa-col-value{font-size:13.5px;font-weight:800;color:var(--ink-primary);margin-bottom:2px;white-space:nowrap;}
+    .sa-col-pct{font-size:11px;color:var(--ink-secondary);margin-bottom:8px;font-weight:700;}
+    .sa-col-bar{width:24px;border-radius:4px 4px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+    .sa-col-bar .seg-empty{background:var(--track-empty);}
+    .sa-col-bar .seg-filled{background:var(--cat-blue);border-top:2px solid var(--chart-surface);}
+    .sa-col-name{margin-top:9px;font-size:11px;color:var(--ink-secondary);font-weight:700;max-width:68px;
+      text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+    .ket-pill-row{display:flex;justify-content:space-between;align-items:center;background:var(--chart-surface);
+      border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:13px;
+      box-shadow:0 1px 2px rgba(16,24,40,.03);}
+    .ket-pill-row .pill{padding:4px 12px;border-radius:999px;font-weight:700;font-size:12px;}
+    .ket-pill-row .pill-count{font-weight:800;color:var(--ink-primary);font-size:14px;}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Reminder HPS / MRA / SA</h1>
+    <p>Isi keterangan tim SA - tersimpan langsung ke spreadsheet</p>
+    <div class="theme-switch">
+      <button class="theme-dot sw-navy" id="themeDotNavy" title="Tema Navy" onclick="setTheme('navy')"></button>
+      <button class="theme-dot sw-black" id="themeDotBlack" title="Tema Hitam" onclick="setTheme('dark-black')"></button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabList" onclick="switchTab('list')">Daftar Pelanggan</button>
+    <button class="tab-btn" id="tabProgress" onclick="switchTab('progress')">Progress Monitoring</button>
+  </div>
+
+  <div id="listWrap">
+    <div class="toolbar">
+      <select id="saSelect"><option>Memuat...</option></select>
+      <input id="searchBox" type="search" placeholder="Cari nama / no. rangka / no. polisi...">
+      <button id="refreshBtn" title="Muat ulang data">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        <span>Muat ulang</span>
+      </button>
+    </div>
+    <div class="statusbar">
+      <span><span id="count">0</span> data</span>
+      <span id="lastUpdate">-</span>
+    </div>
+
+    <main id="main">
+      <div class="loading">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+        <div>Memuat data...</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="progressView" style="display:none;">
+    <div class="loading">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      <div>Memuat progres...</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    /* ====================== TEMA WARNA (Navy / Hitam) ====================== */
+    function setTheme(t) {
+      try { localStorage.setItem('rmTheme', t); } catch (e) {}
+      document.documentElement.setAttribute('data-theme', t);
+      updateThemeDots(t);
+    }
+    function updateThemeDots(t) {
+      var navyDot = document.getElementById('themeDotNavy');
+      var blackDot = document.getElementById('themeDotBlack');
+      if (!navyDot || !blackDot) return;
+      navyDot.className = 'theme-dot sw-navy' + (t === 'navy' ? ' active' : '');
+      blackDot.className = 'theme-dot sw-black' + (t === 'dark-black' ? ' active' : '');
+    }
+    updateThemeDots(document.documentElement.getAttribute('data-theme') || 'navy');
+
+    /* ====================== PEMANGGIL API (ganti google.script.run) ======================
+     * Dipanggil lewat JSONP (tag <script> dinamis), bukan fetch() biasa - supaya tidak
+     * pernah kena blokir CORS oleh browser, apapun domain Vercel-nya nanti. Bentuk
+     * pemakaiannya sengaja dibuat mirip google.script.run supaya kode di bawahnya tetap
+     * gampang dibaca: callApi('namaAction', {param:...}, successFn, failFn).
+     */
+    var __apiCbCounter = 0;
+    function callApi(action, params, onSuccess, onFail) {
+      if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_URL_DEPLOY') !== -1) {
+        (onFail || function () {})('APPS_SCRIPT_URL belum diisi - lihat komentar di <head> file ini.');
+        return;
+      }
+      __apiCbCounter++;
+      var cbName = '__apiCb_' + Date.now() + '_' + __apiCbCounter;
+      var script = document.createElement('script');
+      var done = false;
+
+      function cleanup() {
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+        clearTimeout(timer);
+      }
+
+      window[cbName] = function (resp) {
+        if (done) return;
+        done = true;
+        cleanup();
+        if (resp && resp.ok) {
+          (onSuccess || function () {})(resp.data);
+        } else {
+          (onFail || function () {})(resp && resp.error ? resp.error : 'Gagal memuat data.');
+        }
+      };
+
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        cleanup();
+        (onFail || function () {})('Waktu permintaan habis (timeout). Cek koneksi atau URL Apps Script.');
+      }, 20000);
+
+      var qs = 'action=' + encodeURIComponent(action) + '&callback=' + encodeURIComponent(cbName);
+      Object.keys(params || {}).forEach(function (k) {
+        qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k]);
+      });
+      script.src = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&') + qs;
+      script.onerror = function () {
+        if (done) return;
+        done = true;
+        cleanup();
+        (onFail || function () {})('Gagal menghubungi Apps Script. Cek URL / koneksi internet.');
+      };
+      document.body.appendChild(script);
+    }
+
+    var KET_OPTIONS = [];
+    var ALL_RECORDS = [];
+    var CURRENT_SA = 'Semua';
+
+    function showToast(msg, kind) {
+      var t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'show' + (kind ? ' ' + kind : '');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(function () { t.className = ''; }, 2600);
+    }
+
+    function esc(s) {
+      return String(s === null || s === undefined ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function ketStyle(label) {
+      for (var i = 0; i < KET_OPTIONS.length; i++) {
+        if (KET_OPTIONS[i].label === label) return KET_OPTIONS[i];
+      }
+      return null;
+    }
+
+    function buildOptionsHtml(selected) {
+      var html = '<option value=""' + (!selected ? ' selected' : '') + '>- Belum dipilih -</option>';
+      KET_OPTIONS.forEach(function (o) {
+        html += '<option value="' + esc(o.label) + '"' + (o.label === selected ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+      });
+      return html;
+    }
+
+    function cardHtml(rec) {
+      var mra = rec.ketMra ? '<div class="ket-mra"><b>Keterangan MRA:</b> ' + esc(rec.ketMra) + '</div>' : '';
+      var style = ketStyle(rec.ketSa);
+      var selStyle = style ? ('background:' + style.bg + ';color:' + style.font + ';border-color:' + style.bg + ';') : '';
+      return (
+        '<div class="card" data-rangka="' + esc(rec.rangka) + '">' +
+          '<div class="card-top">' +
+            '<div>' +
+              '<div class="cust-name">' + esc(rec.nama || '(tanpa nama)') + '</div>' +
+              '<div class="cust-sub">' + esc(rec.model || '-') + ' &middot; ' + esc(rec.noPolisi || '-') + '</div>' +
+            '</div>' +
+            '<div class="sa-badge">' + esc(rec.saTerakhir || '-') + '</div>' +
+          '</div>' +
+          '<div class="grid-fields">' +
+            '<div>No. Rangka<br><b>' + esc(rec.rangka) + '</b></div>' +
+            '<div>Kontak<br><b>' + esc(rec.kontak1 || '-') + '</b></div>' +
+            '<div>Tgl Servis Terakhir<br><b>' + esc(rec.tglServis || '-') + '</b></div>' +
+            '<div>Reminder SBE ke-<br><b>' + esc(rec.reminderSbe || '-') + '</b></div>' +
+          '</div>' +
+          mra +
+          '<div class="field-label">Keterangan Reminder (SA)</div>' +
+          '<select class="ket-select" style="' + selStyle + '" onchange="onKetChange(this)">' +
+            buildOptionsHtml(rec.ketSa) +
+          '</select>' +
+          '<div class="booking-field">' +
+            '<div class="field-label">Tanggal Booking (kalau customer jadi booking service)</div>' +
+            '<input type="date" class="date-input" value="' + esc(rec.bookingTgl || '') + '" onchange="onBookingChange(this)">' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    function render() {
+      var main = document.getElementById('main');
+      var q = document.getElementById('searchBox').value.trim().toLowerCase();
+      var list = ALL_RECORDS.filter(function (r) {
+        if (!q) return true;
+        return (r.nama || '').toLowerCase().indexOf(q) !== -1 ||
+               (r.rangka || '').toLowerCase().indexOf(q) !== -1 ||
+               (r.noPolisi || '').toLowerCase().indexOf(q) !== -1;
+      });
+      document.getElementById('count').textContent = list.length;
+      if (!list.length) {
+        main.innerHTML = '<div class="empty">Tidak ada data yang cocok.</div>';
+        return;
+      }
+      main.innerHTML = list.map(cardHtml).join('');
+    }
+
+    function onKetChange(selectEl) {
+      var card = selectEl.closest('.card');
+      var rangka = card.getAttribute('data-rangka');
+      var value = selectEl.value;
+      var style = ketStyle(value);
+      selectEl.style.background = style ? style.bg : '';
+      selectEl.style.color = style ? style.font : '';
+      selectEl.style.borderColor = style ? style.bg : '';
+      card.classList.add('saving');
+
+      callApi('updateKeterangan', { rangka: rangka, ket: value }, function (res) {
+        card.classList.remove('saving');
+        var rec = ALL_RECORDS.filter(function (r) { return r.rangka === rangka; })[0];
+        if (rec) rec.ketSa = value;
+        showToast('Tersimpan ke spreadsheet.', 'ok');
+      }, function (err) {
+        card.classList.remove('saving');
+        showToast('Gagal menyimpan: ' + err, 'bad');
+      });
+    }
+
+    /**
+     * Simpan "Tanggal Booking" baru. Begitu tersimpan dan tanggalnya TERISI,
+     * baris ini otomatis hilang dari daftar (tetap ada di spreadsheet dengan
+     * tanggal bookingnya) - sesuai permintaan: begitu customer jadi booking,
+     * tidak perlu lagi muncul di daftar follow-up SA.
+     */
+    function onBookingChange(inputEl) {
+      var card = inputEl.closest('.card');
+      var rangka = card.getAttribute('data-rangka');
+      var value = inputEl.value; // "yyyy-mm-dd", atau '' kalau tanggalnya dihapus
+      card.classList.add('saving');
+
+      callApi('updateBooking', { rangka: rangka, tgl: value }, function () {
+        card.classList.remove('saving');
+        if (value) {
+          ALL_RECORDS = ALL_RECORDS.filter(function (r) { return r.rangka !== rangka; });
+          showToast('Tanggal booking tersimpan - data ini otomatis hilang dari daftar (tetap ada di spreadsheet).', 'ok');
+          render();
+        } else {
+          showToast('Tanggal booking dihapus.', 'ok');
+        }
+      }, function (err) {
+        card.classList.remove('saving');
+        showToast('Gagal menyimpan tanggal booking: ' + err, 'bad');
+      });
+    }
+
+    function loadSaList() {
+      callApi('getSaList', {}, function (list) {
+        var sel = document.getElementById('saSelect');
+        sel.innerHTML = (list || []).map(function (code) {
+          return '<option value="' + esc(code) + '">' + (code === 'Semua' ? 'Semua SA' : esc(code)) + '</option>';
+        }).join('');
+        sel.value = CURRENT_SA;
+      }, function (err) {
+        showToast('Gagal memuat daftar SA: ' + err, 'bad');
+      });
+    }
+
+    function loadKetOptions(cb) {
+      callApi('getKetOptions', {}, function (opts) {
+        KET_OPTIONS = opts || [];
+        if (cb) cb();
+      }, function (err) {
+        showToast('Gagal memuat pilihan keterangan: ' + err, 'bad');
+      });
+    }
+
+    function loadRecords(saCode) {
+      var btn = document.getElementById('refreshBtn');
+      btn.classList.add('spin');
+      document.getElementById('main').innerHTML =
+        '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+
+      callApi('getRecords', { sa: saCode }, function (records) {
+        btn.classList.remove('spin');
+        ALL_RECORDS = records || [];
+        document.getElementById('lastUpdate').textContent =
+          'Diperbarui ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        render();
+      }, function (err) {
+        btn.classList.remove('spin');
+        document.getElementById('main').innerHTML = '<div class="empty">Gagal memuat data: ' + esc(err) + '</div>';
+      });
+    }
+
+    document.getElementById('saSelect').addEventListener('change', function () {
+      CURRENT_SA = this.value;
+      loadRecords(CURRENT_SA);
+    });
+    document.getElementById('searchBox').addEventListener('input', render);
+    document.getElementById('refreshBtn').addEventListener('click', function () {
+      loadRecords(CURRENT_SA);
+    });
+
+    /* ====================== TAB: PROGRESS MONITORING ====================== */
+
+    var PROGRESS_LOADED = false;
+
+    function switchTab(which) {
+      var isList = which === 'list';
+      document.getElementById('tabList').className = 'tab-btn' + (isList ? ' active' : '');
+      document.getElementById('tabProgress').className = 'tab-btn' + (!isList ? ' active' : '');
+      document.getElementById('listWrap').style.display = isList ? '' : 'none';
+      document.getElementById('progressView').style.display = isList ? 'none' : '';
+      if (!isList) loadProgress();
+    }
+
+    function ringSvg(percent, size) {
+      size = size || 128;
+      var stroke = size <= 100 ? 9 : 12;
+      var r = size / 2 - stroke - 2;
+      var c = 2 * Math.PI * r;
+      var offset = c - (percent / 100) * c;
+      var color = percent >= 80 ? '#0ca30c' : (percent >= 40 ? '#e09400' : '#d03b3b');
+      var fontSize = size <= 100 ? 18 : 25;
+      var mid = size / 2;
+      return (
+        '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
+          '<circle cx="' + mid + '" cy="' + mid + '" r="' + r + '" fill="none" style="stroke:var(--ring-track)" stroke-width="' + stroke + '"/>' +
+          '<circle cx="' + mid + '" cy="' + mid + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + stroke + '" ' +
+            'stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '" ' +
+            'transform="rotate(-90 ' + mid + ' ' + mid + ')"/>' +
+          '<text x="' + mid + '" y="' + (mid + fontSize / 3) + '" text-anchor="middle" class="ring-pct" style="font-size:' + fontSize + 'px">' + percent + '%</text>' +
+        '</svg>'
+      );
+    }
+
+    function teamCardHtml(name, t, tone) {
+      return (
+        '<div class="team-card tone-' + tone + '">' +
+          ringSvg(t.percent, 100) +
+          '<div class="team-name">' + esc(name) + '</div>' +
+          '<div class="team-frac">' + t.filled + ' / ' + t.total + ' sudah diisi</div>' +
+        '</div>'
+      );
+    }
+
+    /** Diagram batang progres per SA - tinggi batang = jumlah keseluruhan (diskalakan ke SA
+     * dengan jumlah terbanyak), dibagi 2 warna (sudah diisi / belum diisi); label di atas
+     * batang menampilkan jumlah keseluruhan + persentase, sesuai permintaan. */
+    function buildSaChart(perSa) {
+      if (!perSa || !perSa.length) {
+        return '<div class="empty" style="padding:30px 20px;">Belum ada data SA.</div>';
+      }
+      var maxTotal = Math.max.apply(null, perSa.map(function (r) { return r.total; }));
+      var maxBarPx = 150;
+
+      var cols = perSa.map(function (r) {
+        var totalPx = maxTotal ? Math.max(14, Math.round((r.total / maxTotal) * maxBarPx)) : 14;
+        var filledPx = r.total ? Math.round((r.filled / r.total) * totalPx) : 0;
+        var emptyPx = Math.max(0, totalPx - filledPx);
+        return (
+          '<div class="sa-col" title="' + esc(r.sa) + ': ' + r.filled + ' dari ' + r.total + ' (' + r.percent + '%)">' +
+            '<div class="sa-col-value">' + r.total + '</div>' +
+            '<div class="sa-col-pct">' + r.percent + '%</div>' +
+            '<div class="sa-col-bar" style="height:' + totalPx + 'px">' +
+              (emptyPx > 0 ? '<div class="seg-empty" style="height:' + emptyPx + 'px"></div>' : '') +
+              (filledPx > 0 ? '<div class="seg-filled" style="height:' + filledPx + 'px"></div>' : '') +
+            '</div>' +
+            '<div class="sa-col-name">' + esc(r.sa) + '</div>' +
+          '</div>'
+        );
+      }).join('');
+
+      return (
+        '<div class="sa-chart-wrap">' +
+          '<div class="sa-chart-legend">' +
+            '<span><span class="legend-swatch" style="background:var(--cat-blue)"></span>Sudah diisi</span>' +
+            '<span><span class="legend-swatch" style="background:var(--track-empty);border:1px solid var(--border)"></span>Belum diisi</span>' +
+          '</div>' +
+          '<div class="sa-chart-scroll"><div class="sa-chart-row">' + cols + '</div></div>' +
+        '</div>'
+      );
+    }
+
+    function saBarHtml(row) {
+      var fullClass = row.percent >= 100 ? ' full' : '';
+      return (
+        '<div class="sa-bar-row">' +
+          '<div class="sa-bar-top">' +
+            '<span class="sa-name">' + esc(row.sa) + '</span>' +
+            '<span class="sa-frac">' + row.filled + ' / ' + row.total + ' &middot; ' + row.percent + '%</span>' +
+          '</div>' +
+          '<div class="bar-track"><div class="bar-fill' + fullClass + '" style="width:' + row.percent + '%"></div></div>' +
+        '</div>'
+      );
+    }
+
+    function ketPillHtml(row, maxCount) {
+      var width = maxCount ? Math.max(6, Math.round((row.count / maxCount) * 100)) : 0;
+      return (
+        '<div class="ket-pill-row">' +
+          '<span class="pill" style="background:' + row.bg + ';color:' + row.font + '">' + esc(row.label) + '</span>' +
+          '<span class="pill-count">' + row.count + '</span>' +
+        '</div>'
+      );
+    }
+
+    function renderProgress(sa, team) {
+      var el = document.getElementById('progressView');
+      var nothing = !sa.total && !team.mra1.total && !team.mra2.total && !team.hps.total;
+      if (nothing) {
+        el.innerHTML = '<div class="empty" style="padding:60px 20px;">Belum ada data untuk dipantau.</div>';
+        return;
+      }
+      var html = '';
+
+      html += '<div class="section-title">Ringkasan per Tim</div>';
+      html += '<div class="team-grid">' +
+        teamCardHtml('MRA 1', team.mra1, 'blue') +
+        teamCardHtml('MRA 2', team.mra2, 'violet') +
+        teamCardHtml('HPS', team.hps, 'orange') +
+        teamCardHtml('SA (semua)', sa, 'aqua') +
+      '</div>';
+      html += '<div class="updated-note">Diperbarui ' + esc(team.updated || sa.updated) + '</div>';
+
+      html += '<div class="section-title">Detail Progress SA</div>';
+      html += '<div class="ring-wrap">' +
+        ringSvg(sa.percent) +
+        '<div class="ring-caption"><b>' + sa.filled + ' dari ' + sa.total + ' data sudah diisi tim SA</b>' +
+          '<div>Sisa <b>' + sa.empty + '</b> data yang "Keterangan Reminder (SA)"-nya belum dipilih.</div>' +
+        '</div></div>';
+
+      html += '<div class="kpi-row">' +
+        '<div class="kpi-tile"><div class="num">' + sa.total + '</div><div class="lbl">Total data SA</div></div>' +
+        '<div class="kpi-tile"><div class="num ok">' + sa.filled + '</div><div class="lbl">Sudah diisi</div></div>' +
+        '<div class="kpi-tile"><div class="num warn">' + sa.empty + '</div><div class="lbl">Belum diisi</div></div>' +
+      '</div>';
+
+      html += '<div class="section-title">Progres per SA (diagram batang)</div>';
+      html += buildSaChart(sa.perSa);
+
+      if (sa.perKet.length) {
+        var maxCount = Math.max.apply(null, sa.perKet.map(function (k) { return k.count; }));
+        html += '<div class="section-title">Alasan terbanyak (dari yang sudah diisi)</div>';
+        html += sa.perKet.map(function (k) { return ketPillHtml(k, maxCount); }).join('');
+      }
+
+      el.innerHTML = html;
+    }
+
+    function loadProgress() {
+      if (!PROGRESS_LOADED) {
+        document.getElementById('progressView').innerHTML =
+          '<div class="loading"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5">' +
+          '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><div>Memuat progres...</div></div>';
+      }
+
+      var combined = {};
+      var hadError = false;
+      var pending = 2;
+
+      function finishOne() {
+        pending--;
+        if (pending > 0) return;
+        if (hadError && !combined.sa && !combined.team) {
+          document.getElementById('progressView').innerHTML =
+            '<div class="empty" style="padding:60px 20px;">Gagal memuat progres. Coba buka ulang tab ini.</div>';
+          return;
+        }
+        PROGRESS_LOADED = true;
+        renderProgress(
+          combined.sa || { total: 0, filled: 0, empty: 0, percent: 0, perSa: [], perKet: [] },
+          combined.team || { mra1: {total:0,filled:0,percent:0}, mra2: {total:0,filled:0,percent:0}, hps: {total:0,filled:0,percent:0} }
+        );
+      }
+
+      callApi('getProgressStats', {}, function (stats) { combined.sa = stats; finishOne(); },
+        function () { hadError = true; finishOne(); });
+
+      callApi('getTeamProgress', {}, function (team) { combined.team = team; finishOne(); },
+        function () { hadError = true; finishOne(); });
+    }
+
+    loadKetOptions(function () {
+      loadSaList();
+      loadRecords(CURRENT_SA);
+    });
+  </script>
+</body>
+</html>
