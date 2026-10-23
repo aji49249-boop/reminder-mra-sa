@@ -658,8 +658,8 @@
       return (
         '<div class="sa-chart-wrap">' +
           '<div class="sa-chart-legend">' +
-            '<span><span class="legend-swatch" style="background:var(--cat-blue)"></span>Sudah diisi</span>' +
-            '<span><span class="legend-swatch" style="background:var(--track-empty);border:1px solid var(--border)"></span>Belum diisi</span>' +
+            '<span><span class="legend-swatch" style="background:var(--cat-blue)"></span>Sudah booking</span>' +
+            '<span><span class="legend-swatch" style="background:var(--track-empty);border:1px solid var(--border)"></span>Belum booking</span>' +
           '</div>' +
           '<div class="sa-chart-scroll"><div class="sa-chart-row">' + cols + '</div></div>' +
         '</div>'
@@ -707,20 +707,20 @@
       '</div>';
       html += '<div class="updated-note">Diperbarui ' + esc(team.updated || sa.updated) + '</div>';
 
-      html += '<div class="section-title">Detail Progress SA</div>';
+      html += '<div class="section-title">Detail Progres Booking SA</div>';
       html += '<div class="ring-wrap">' +
         ringSvg(sa.percent) +
-        '<div class="ring-caption"><b>' + sa.filled + ' dari ' + sa.total + ' data sudah diisi tim SA</b>' +
-          '<div>Sisa <b>' + sa.empty + '</b> data yang "Keterangan Reminder (SA)"-nya belum dipilih.</div>' +
+        '<div class="ring-caption"><b>' + sa.filled + ' dari ' + sa.total + ' data customer sudah booking service</b>' +
+          '<div>Sisa <b>' + sa.empty + '</b> data yang pelanggannya belum booking service (walau mungkin sudah ditelepon/dicatat keterangannya).</div>' +
         '</div></div>';
 
       html += '<div class="kpi-row">' +
         '<div class="kpi-tile"><div class="num">' + sa.total + '</div><div class="lbl">Total data SA</div></div>' +
-        '<div class="kpi-tile"><div class="num ok">' + sa.filled + '</div><div class="lbl">Sudah diisi</div></div>' +
-        '<div class="kpi-tile"><div class="num warn">' + sa.empty + '</div><div class="lbl">Belum diisi</div></div>' +
+        '<div class="kpi-tile"><div class="num ok">' + sa.filled + '</div><div class="lbl">Sudah booking</div></div>' +
+        '<div class="kpi-tile"><div class="num warn">' + sa.empty + '</div><div class="lbl">Belum booking</div></div>' +
       '</div>';
 
-      html += '<div class="section-title">Progres per SA (diagram batang)</div>';
+      html += '<div class="section-title">Progres Booking per SA (diagram batang)</div>';
       html += buildSaChart(sa.perSa);
 
       if (sa.perKet.length) {
