@@ -571,6 +571,7 @@
         var sel1 = document.getElementById('bulanSelect');
         if (sel1) { sel1.innerHTML = opts; sel1.value = CURRENT_BULAN; }
         if (SUMMARY_LOADED && CURRENT_TAB === 'summary') loadSummaryReport(true);
+        if (PROGRESS_LOADED && CURRENT_TAB === 'progress') loadProgress();
       }, function (err) {
         showToast('Gagal memuat daftar bulan: ' + err, 'bad');
       });
@@ -650,6 +651,7 @@
     var PROGRESS_LOADED = false;
     var SUMMARY_LOADED = false;
     var CURRENT_SUMMARY_BULAN = 'Semua';
+    var CURRENT_PROGRESS_BULAN = 'Semua'; // BARU sesi 22 - filter bulan khusus tab Progress Monitoring
     var BULAN_LIST_CACHE = [{ key: 'Semua', label: 'Semua Bulan' }];
 
     function switchTab(which) {
@@ -755,14 +757,44 @@
       );
     }
 
+    /** Dropdown "Filter Bulan" khusus tab Progress Monitoring - BARU sesi 22, polanya sama
+     * persis dengan summaryBulanSelectHtml() di tab Summary Report (pakai BULAN_LIST_CACHE
+     * yang sama, dibangun ulang tiap kali renderProgress dipanggil). */
+    function progressBulanSelectHtml() {
+      var opts = BULAN_LIST_CACHE.map(function (b) {
+        return '<option value="' + esc(b.key) + '"' + (b.key === CURRENT_PROGRESS_BULAN ? ' selected' : '') + '>' + esc(b.label) + '</option>';
+      }).join('');
+      return '<select id="progressBulanSelect" onchange="onProgressBulanChange(this)">' + opts + '</select>';
+    }
+
+    function onProgressBulanChange(selectEl) {
+      CURRENT_PROGRESS_BULAN = selectEl.value;
+      loadProgress();
+    }
+
     function renderProgress(sa, team) {
       var el = document.getElementById('progressView');
       var nothing = !sa.total && !team.mra1.total && !team.mra2.total && !team.hps.total;
       if (nothing) {
-        el.innerHTML = '<div class="empty" style="padding:60px 20px;">Belum ada data untuk dipantau.</div>';
+        el.innerHTML =
+          '<div class="summary-titlebar"><h2>Progress Monitoring</h2>' + progressBulanSelectHtml() + '</div>' +
+          '<div class="empty" style="padding:60px 20px;">Belum ada data untuk dipantau' +
+          (team.filterActive ? ' pada bulan ' + esc(team.filterBulan) : '') + '.</div>';
         return;
       }
       var html = '';
+
+      // BARU sesi 22: judul tab + dropdown "Filter Bulan" (sama seperti di tab Summary
+      // Report) - saat dipilih ke bulan tertentu, SEMUA kartu & indikator di bawah ini
+      // (termasuk "Ringkasan per Tim" MRA 1/MRA 2/HPS, yang sejak sesi 21 sudah punya
+      // kolom "Bulan Masuk" sendiri) ikut hanya menghitung data bulan tersebut.
+      html += '<div class="summary-titlebar"><h2>Progress Monitoring</h2>' + progressBulanSelectHtml() + '</div>';
+      if (team.filterActive) {
+        html += '<div class="updated-note" style="text-align:left;color:var(--warn-text);margin-top:6px;">' +
+          'Filter aktif: <b>' + esc(team.filterBulan) + '</b> - semua kartu & indikator di bawah ini ' +
+          'hanya menghitung data yang masuk pada bulan tersebut.' +
+        '</div>';
+      }
 
       html += '<div class="section-title">Ringkasan per Tim</div>';
       html += '<div class="team-grid">' +
@@ -820,14 +852,14 @@
         PROGRESS_LOADED = true;
         renderProgress(
           combined.sa || { total: 0, filled: 0, empty: 0, percent: 0, perSa: [], perKet: [] },
-          combined.team || { mra1: {total:0,filled:0,percent:0}, mra2: {total:0,filled:0,percent:0}, hps: {total:0,filled:0,percent:0} }
+          combined.team || { mra1: {total:0,filled:0,percent:0}, mra2: {total:0,filled:0,percent:0}, hps: {total:0,filled:0,percent:0}, filterActive: false, filterBulan: null }
         );
       }
 
-      callApi('getProgressStats', {}, function (stats) { combined.sa = stats; finishOne(); },
+      callApi('getProgressStats', { bulan: CURRENT_PROGRESS_BULAN }, function (stats) { combined.sa = stats; finishOne(); },
         function () { hadError = true; finishOne(); });
 
-      callApi('getTeamProgress', {}, function (team) { combined.team = team; finishOne(); },
+      callApi('getTeamProgress', { bulan: CURRENT_PROGRESS_BULAN }, function (team) { combined.team = team; finishOne(); },
         function () { hadError = true; finishOne(); });
     }
 
@@ -895,10 +927,9 @@
       html += '<div class="updated-note">Diperbarui ' + esc(data.updated) + '</div>';
       if (data.filterActive) {
         html += '<div class="updated-note" style="text-align:left;color:var(--warn-text);margin-top:6px;">' +
-          'Filter aktif: <b>' + esc(data.filterBulan) + '</b> - bagian "Breakdown Alasan/Keterangan" & ' +
-          '"Performance per SA" di bawah ini hanya menghitung data bulan tersebut. Bagian "Ringkasan ' +
-          'Keseluruhan" & "Pembagian per Tim" TETAP menampilkan semua waktu (tidak ikut difilter, karena ' +
-          'data yang masih ada di sheet MRA 1/MRA 2 belum tercatat tanggal masuknya per bulan).' +
+          'Filter aktif: <b>' + esc(data.filterBulan) + '</b> - semua bagian di bawah ini (Ringkasan ' +
+          'Keseluruhan, Pembagian per Tim, Breakdown Alasan/Keterangan, Performance per SA) hanya ' +
+          'menghitung data yang masuk pada bulan tersebut.' +
         '</div>';
       }
 
