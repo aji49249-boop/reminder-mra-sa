@@ -254,6 +254,28 @@
       box-shadow:0 1px 2px rgba(16,24,40,.03);}
     .ket-pill-row .pill{padding:4px 12px;border-radius:999px;font-weight:700;font-size:12px;}
     .ket-pill-row .pill-count{font-weight:800;color:var(--ink-primary);font-size:14px;}
+
+    /* ---- Tab: Summary Report (meniru gaya file MRA Performance.xlsx, lihat sesi 17) ---- */
+    #summaryView{padding:16px 14px 100px;max-width:820px;margin:0 auto;}
+    .summary-titlebar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:2px;}
+    .summary-titlebar h2{font-size:18px;margin:0;color:var(--ink-primary);font-weight:800;}
+    .summary-period-badge{background:#404040;color:#FFE97F;font-weight:700;font-size:13.5px;
+      padding:6px 14px;border-radius:5px;letter-spacing:.4px;white-space:nowrap;}
+    .summary-section{background:var(--chart-surface);border:1px solid var(--border);border-radius:14px;
+      padding-bottom:10px;margin:14px 0;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+    .summary-sectionbar{color:#fff;font-weight:700;font-size:12.5px;letter-spacing:.3px;
+      padding:10px 14px;margin-bottom:10px;}
+    .summary-sectionbar.bar-red{background:#C00000;}
+    .summary-sectionbar.bar-navy{background:#002060;}
+    .summary-sectionbar.bar-mustard{background:#806000;}
+    .summary-sectionbar.bar-green{background:#375623;}
+    .summary-table-wrap{padding:0 14px;overflow-x:auto;}
+    .summary-table{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap;}
+    .summary-table th{background:var(--navy);color:#fff;text-align:left;padding:7px 10px;font-weight:600;}
+    .summary-table td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text);}
+    .summary-table tr:last-child td{border-bottom:none;}
+    .summary-table tr.total td{font-weight:800;background:var(--tone-blue-bg);}
+    .summary-table td.num,.summary-table th.num{text-align:right;}
   </style>
 </head>
 <body>
@@ -269,6 +291,7 @@
   <div class="tabs">
     <button class="tab-btn active" id="tabList" onclick="switchTab('list')">Daftar Pelanggan</button>
     <button class="tab-btn" id="tabProgress" onclick="switchTab('progress')">Progress Monitoring</button>
+    <button class="tab-btn" id="tabSummary" onclick="switchTab('summary')">Summary Report</button>
   </div>
 
   <div id="listWrap">
@@ -297,6 +320,13 @@
     <div class="loading">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
       <div>Memuat progres...</div>
+    </div>
+  </div>
+
+  <div id="summaryView" style="display:none;">
+    <div class="loading">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      <div>Memuat summary report...</div>
     </div>
   </div>
 
@@ -568,6 +598,7 @@
      * ketimpa/hilang di tengah proses.
      */
     var AUTO_REFRESH_MS = 60000;
+    var CURRENT_TAB = 'list';
     function isUserEditingNow() {
       var el = document.activeElement;
       if (!el) return false;
@@ -576,26 +607,31 @@
     }
     function autoRefreshTick() {
       if (isUserEditingNow()) return;
-      var listActive = document.getElementById('listWrap').style.display !== 'none';
-      if (listActive) {
+      if (CURRENT_TAB === 'list') {
         loadRecords(CURRENT_SA, true);
-      } else {
+      } else if (CURRENT_TAB === 'progress') {
         loadProgress();
+      } else if (CURRENT_TAB === 'summary') {
+        loadSummaryReport(true);
       }
     }
     setInterval(autoRefreshTick, AUTO_REFRESH_MS);
 
-    /* ====================== TAB: PROGRESS MONITORING ====================== */
+    /* ====================== TAB: PROGRESS MONITORING & SUMMARY REPORT ====================== */
 
     var PROGRESS_LOADED = false;
+    var SUMMARY_LOADED = false;
 
     function switchTab(which) {
-      var isList = which === 'list';
-      document.getElementById('tabList').className = 'tab-btn' + (isList ? ' active' : '');
-      document.getElementById('tabProgress').className = 'tab-btn' + (!isList ? ' active' : '');
-      document.getElementById('listWrap').style.display = isList ? '' : 'none';
-      document.getElementById('progressView').style.display = isList ? 'none' : '';
-      if (!isList) loadProgress();
+      CURRENT_TAB = which;
+      document.getElementById('tabList').className = 'tab-btn' + (which === 'list' ? ' active' : '');
+      document.getElementById('tabProgress').className = 'tab-btn' + (which === 'progress' ? ' active' : '');
+      document.getElementById('tabSummary').className = 'tab-btn' + (which === 'summary' ? ' active' : '');
+      document.getElementById('listWrap').style.display = which === 'list' ? '' : 'none';
+      document.getElementById('progressView').style.display = which === 'progress' ? '' : 'none';
+      document.getElementById('summaryView').style.display = which === 'summary' ? '' : 'none';
+      if (which === 'progress') loadProgress();
+      if (which === 'summary') loadSummaryReport();
     }
 
     function ringSvg(percent, size) {
@@ -763,6 +799,97 @@
 
       callApi('getTeamProgress', {}, function (team) { combined.team = team; finishOne(); },
         function () { hadError = true; finishOne(); });
+    }
+
+    /* ====================== TAB: SUMMARY REPORT ======================
+     * Versi Web App (live, ikut auto-refresh 60 detik) dari sheet "Summary Report
+     * Performance" - datanya sama persis (fungsi hitung yang sama di .gs), cuma
+     * ditampilkan di sini supaya bisa dilihat dari HP/laptop tanpa buka spreadsheet.
+     */
+    function summaryCell(v, isPct) {
+      if (v === null || v === undefined) return '<td class="num">-</td>';
+      return '<td class="num">' + v + (isPct ? '%' : '') + '</td>';
+    }
+
+    function summaryTeamTableHtml(perTim) {
+      var rows = perTim.map(function (t) {
+        return '<tr><td>' + esc(t.tim) + '</td>' +
+          summaryCell(t.totalDatabase) + summaryCell(t.unconnected) +
+          summaryCell(t.dihubungi) + summaryCell(t.pctDihubungi, true) +
+          summaryCell(t.booking) + summaryCell(t.pctBooking, true) + '</tr>';
+      }).join('');
+      return (
+        '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>' +
+          '<th>Tim</th><th class="num">Total Database</th><th class="num">Unconnected</th>' +
+          '<th class="num">Sudah Dihubungi</th><th class="num">% Dihubungi</th>' +
+          '<th class="num">Sudah Booking</th><th class="num">% Booking</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      );
+    }
+
+    function summaryPerSaTableHtml(perSa) {
+      if (!perSa.length) return '<div class="empty" style="padding:20px;">Belum ada data.</div>';
+      var rows = perSa.map(function (r) {
+        return '<tr><td>' + esc(r.sa) + '</td><td class="num">' + r.total + '</td>' +
+          '<td class="num">' + r.booking + '</td><td class="num">' + r.pctBooking + '%</td></tr>';
+      }).join('');
+      return (
+        '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>' +
+          '<th>SA</th><th class="num">Total Jatah</th><th class="num">Sudah Booking</th><th class="num">% Booking</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      );
+    }
+
+    function renderSummaryReport(data) {
+      var el = document.getElementById('summaryView');
+      var k = data.keseluruhan;
+      var html = '';
+
+      html += '<div class="summary-titlebar"><h2>Ringkasan Performance Reminder</h2>' +
+        '<div class="summary-period-badge">' + esc(data.periodBadge) + '</div></div>';
+      html += '<div class="updated-note">Diperbarui ' + esc(data.updated) + '</div>';
+
+      html += '<div class="summary-section"><div class="summary-sectionbar bar-red">Ringkasan Keseluruhan (Semua Tim)</div>' +
+        '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>' +
+          '<th>Total Database</th><th class="num">Unconnected</th><th class="num">Sudah Dihubungi</th>' +
+          '<th class="num">% Dihubungi</th><th class="num">Sudah Booking</th><th class="num">% Booking</th>' +
+        '</tr></thead><tbody><tr class="total">' +
+          '<td class="num" style="text-align:left">' + k.totalDatabase + '</td>' +
+          summaryCell(k.unconnected) + summaryCell(k.dihubungi) + summaryCell(k.pctDihubungi, true) +
+          summaryCell(k.booking) + summaryCell(k.pctBooking, true) +
+        '</tr></tbody></table></div></div>';
+
+      html += '<div class="summary-section"><div class="summary-sectionbar bar-navy">Pembagian per Tim</div>' +
+        summaryTeamTableHtml(data.perTim) + '</div>';
+
+      html += '<div class="summary-section"><div class="summary-sectionbar bar-mustard">Breakdown Alasan / Keterangan (Gabungan Semua Tim)</div>' +
+        '<div style="padding:0 14px;">' +
+        (data.breakdownKeterangan.length
+          ? data.breakdownKeterangan.map(ketPillHtml).join('')
+          : '<div class="empty" style="padding:10px 0 20px;">Belum ada data.</div>') +
+        '</div></div>';
+
+      html += '<div class="summary-section"><div class="summary-sectionbar bar-green">Performance per SA (Berdasarkan Booking)</div>' +
+        summaryPerSaTableHtml(data.perSa) + '</div>';
+
+      el.innerHTML = html;
+    }
+
+    function loadSummaryReport(quiet) {
+      if (!SUMMARY_LOADED && !quiet) {
+        document.getElementById('summaryView').innerHTML =
+          '<div class="loading"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2.5">' +
+          '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg><div>Memuat summary report...</div></div>';
+      }
+      callApi('getSummaryReportPerformance', {}, function (data) {
+        SUMMARY_LOADED = true;
+        renderSummaryReport(data);
+      }, function (err) {
+        if (!quiet) {
+          document.getElementById('summaryView').innerHTML =
+            '<div class="empty" style="padding:60px 20px;">Gagal memuat summary report: ' + esc(err) + '</div>';
+        }
+      });
     }
 
     loadKetOptions(function () {
