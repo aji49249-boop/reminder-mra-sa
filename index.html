@@ -935,10 +935,12 @@
 
       html += '<div class="summary-section"><div class="summary-sectionbar bar-red">Ringkasan Keseluruhan (Semua Tim)</div>' +
         '<div class="summary-table-wrap"><table class="summary-table"><thead><tr>' +
-          '<th>Total Database</th><th class="num">Unconnected</th><th class="num">Sudah Dihubungi</th>' +
-          '<th class="num">% Dihubungi</th><th class="num">Sudah Booking</th><th class="num">% Booking</th>' +
+          '<th>Total Database</th><th class="num">Connected</th><th class="num">% Connected</th>' +
+          '<th class="num">Unconnected</th><th class="num">Contacted</th><th class="num">% Contacted</th>' +
+          '<th class="num">Sudah Booking</th><th class="num">% Booking</th>' +
         '</tr></thead><tbody><tr class="total">' +
           '<td class="num" style="text-align:left">' + k.totalDatabase + '</td>' +
+          summaryCell(k.connected) + summaryCell(k.pctConnected, true) +
           summaryCell(k.unconnected) + summaryCell(k.dihubungi) + summaryCell(k.pctDihubungi, true) +
           summaryCell(k.booking) + summaryCell(k.pctBooking, true) +
         '</tr></tbody></table></div></div>';
