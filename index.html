@@ -125,6 +125,7 @@
     select:focus,input[type=search]:focus{border-color:var(--navy);}
     #saSelect{flex:0 0 auto;min-width:130px;font-weight:600;}
     #bulanSelect{flex:0 0 auto;min-width:120px;font-weight:600;}
+    #statusSelect{flex:0 0 auto;min-width:130px;font-weight:600;}
     #searchBox{flex:1 1 160px;min-width:120px;}
     #refreshBtn{
       border:none;border-radius:9px;background:var(--navy);color:#fff;
@@ -164,6 +165,12 @@
       flex:0 0 auto;background:var(--badge-bg);color:var(--badge-text);font-size:11px;font-weight:700;
       padding:3px 9px;border-radius:999px;white-space:nowrap;
     }
+    .status-badge{
+      flex:0 0 auto;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;
+      white-space:nowrap;margin-left:6px;
+    }
+    .status-badge.free{background:#0ca30c22;color:#0ca30c;border:1px solid #0ca30c55;}
+    .status-badge.berbayar{background:#d03b3b22;color:#d03b3b;border:1px solid #d03b3b55;}
     .grid-fields{
       display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;
       font-size:12px;color:var(--muted);margin-bottom:10px;
@@ -301,6 +308,11 @@
     <div class="toolbar">
       <select id="saSelect"><option>Memuat...</option></select>
       <select id="bulanSelect"><option>Semua Bulan</option></select>
+      <select id="statusSelect">
+        <option value="Semua">Semua Status</option>
+        <option value="Free">Free (Gratis)</option>
+        <option value="Berbayar">Berbayar</option>
+      </select>
       <input id="searchBox" type="search" placeholder="Cari nama / no. rangka / no. polisi...">
       <button id="refreshBtn" title="Muat ulang data">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
@@ -411,6 +423,7 @@
     var ALL_RECORDS = [];
     var CURRENT_SA = 'Semua';
     var CURRENT_BULAN = 'Semua';
+    var CURRENT_STATUS = 'Semua'; // BARU 27 Okt - filter "Status Servis (Free/Berbayar)"
 
     function showToast(msg, kind) {
       var t = document.getElementById('toast');
@@ -440,6 +453,12 @@
       return html;
     }
 
+    function statusBadgeHtml(statusServis) {
+      if (statusServis === 'Free') return '<span class="status-badge free">Free</span>';
+      if (statusServis === 'Berbayar') return '<span class="status-badge berbayar">Berbayar</span>';
+      return ''; // belum diketahui (baris lama/History Job Terakhir kosong) - tidak ditampilkan
+    }
+
     function cardHtml(rec) {
       var mra = rec.ketMra ? '<div class="ket-mra"><b>Keterangan MRA:</b> ' + esc(rec.ketMra) + '</div>' : '';
       var style = ketStyle(rec.ketSa);
@@ -451,7 +470,10 @@
               '<div class="cust-name">' + esc(rec.nama || '(tanpa nama)') + '</div>' +
               '<div class="cust-sub">' + esc(rec.model || '-') + ' &middot; ' + esc(rec.noPolisi || '-') + '</div>' +
             '</div>' +
-            '<div class="sa-badge">' + esc(rec.saTerakhir || '-') + '</div>' +
+            '<div style="display:flex;align-items:center;">' +
+              '<div class="sa-badge">' + esc(rec.saTerakhir || '-') + '</div>' +
+              statusBadgeHtml(rec.statusServis) +
+            '</div>' +
           '</div>' +
           '<div class="grid-fields">' +
             '<div>No. Rangka<br><b>' + esc(rec.rangka) + '</b></div>' +
@@ -591,7 +613,7 @@
           '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
       }
 
-      callApi('getRecords', { sa: saCode, bulan: CURRENT_BULAN }, function (records) {
+      callApi('getRecords', { sa: saCode, bulan: CURRENT_BULAN, status: CURRENT_STATUS }, function (records) {
         btn.classList.remove('spin');
         ALL_RECORDS = records || [];
         document.getElementById('lastUpdate').textContent =
@@ -607,6 +629,11 @@
 
     document.getElementById('bulanSelect').addEventListener('change', function () {
       CURRENT_BULAN = this.value;
+      loadRecords(CURRENT_SA);
+    });
+
+    document.getElementById('statusSelect').addEventListener('change', function () {
+      CURRENT_STATUS = this.value;
       loadRecords(CURRENT_SA);
     });
 
